@@ -1,6 +1,7 @@
 import json
 import datetime
 from operator import itemgetter
+import os
 from bson import json_util
 from bson.objectid import ObjectId
 from pymongo import MongoClient
@@ -28,7 +29,8 @@ def start_session(handler, username):
 class Chat(web.Application):
     def __init__(self):
 
-        self.db = MongoClient().db
+        mongo_url = os.environ.get('MONGOHQ_URL', 'localhost')
+        self.db = MongoClient(mongo_url).db
         self.sockets = []
 
         handlers = [
