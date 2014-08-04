@@ -239,6 +239,6 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
 if __name__ == '__main__':
     application = Chat()
-    application.listen(80)
+    application.listen(5000)
     print "Started"
     tornado.ioloop.IOLoop.instance().start()
