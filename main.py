@@ -241,6 +241,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
 if __name__ == '__main__':
     application = Chat()
-    application.listen(5000)
-    print "Started"
+    port = os.environ.get('PORT', 5000)
+    application.listen(port)
+    print "Started at port %s" % port
     tornado.ioloop.IOLoop.instance().start()
