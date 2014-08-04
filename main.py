@@ -32,6 +32,7 @@ class Chat(web.Application):
         mongo_url = os.environ.get('MONGOHQ_URL', 'localhost')
         self.db = MongoClient(mongo_url).db
         self.sockets = []
+        self.rooms = {}
 
         handlers = [
             (r'^/$', MainHandler),
@@ -39,7 +40,6 @@ class Chat(web.Application):
             (r'^/signup$', SignupHandler),
             (r'^/static/(.*)', tornado.web.StaticFileHandler,
                 {'path': 'static/'}),
-            (r'^/rooms', RoomsListHandler),
             (r'^/chat$', WebSocketHandler),
         ]
 
@@ -83,27 +83,34 @@ class SignupHandler(web.RequestHandler):
 
 
 class LoginHandler(web.RequestHandler):
+    """
+    Client send by method POST authentication data
+    If user is found, then it needs to start session
+    """
     def post(self, *args, **kwargs):
+
+        self.clear_cookie('session')
         username = self.get_argument('username')
         password = self.get_argument('password')
-        if self.application.authenticate(username, password):
-            data = {'status': 'success'}
+        if not username:
+            data = {"status": "error", "message": "username is empty"}
+        elif not password:
+            data = {"status": "error", "message": "password is empty"}
+        elif self.application.authenticate(username, password):
+            self.set_secure_cookie('session', "asdfasdfkjabhsdjhagd")
+            data = {"status": "success"}
             start_session(self, username)
         else:
-            data = {'status': 'error', 'message': 'Authorization failed'}
+            data = {"status": "error", "message": "username or password are incorrect"}
         self.finish(json.dumps(data))
 
 
-class RoomsListHandler(web.RequestHandler):
-    def get(self, *args, **kwargs):
-        pyrooms = self.application.db.rooms.find().sort('name', 1)
-        rooms = [room['name'] for room in pyrooms]
-        self.finish(json.dumps(rooms))
-
 
 COMMANDS = (
-    (re.compile(r'/join ([\w\s-]+)'), 'join_room'),
-    (re.compile(r'/create ([\w\s-]+)'), 'create_room')
+    (re.compile(r'/join ([a-zA-Z]+[\w\s]{0,30})'), 'join_room'),
+    (re.compile(r'/create ([a-zA-Z]+[\w\s]{0,30})'), 'create_room'),
+    (re.compile(r'/leave ([a-zA-Z]+[\w\s]{0,30})'), 'leave_room'),
+    (re.compile(r'/rooms'), 'rooms_list')
 )
 
 
@@ -130,7 +137,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         :param room:
         :return:
         """
-        room = match.group(0)
+        room = match.group(1)
         if not self.application.db.rooms.find(name=room):
             msg = {'text': 'There is no room with this name',
                    'status': 'error',
@@ -139,20 +146,19 @@ class WebSocketHandler(websocket.WebSocketHandler):
             return
 
         self.joined_rooms.add(room)
-        if not room in self.application.rooms:
-            self.application.rooms[room] = [self]
-        else:
+        if room in self.application.rooms:
             self.application.rooms[room].append(self)
+        else:
+            self.application.rooms[room] = []
 
-        msg = {'text': 'Has join this room',
-               'status': 'success',
-               'command': 'join'}
+        msg = {'server_event': 'room_joined',
+               'room': room}
         self.ws_connection.write_message(json.dumps(msg))
 
         self.send_history(room)
         msg = {'text': 'Has join this room',
                'room': room}
-        self.send_message(room)
+        self.send_message(msg)
 
     def create_room(self, match):
         """
@@ -160,24 +166,44 @@ class WebSocketHandler(websocket.WebSocketHandler):
         :param match:
         :return:
         """
-        room = match.group(0)
+        room = match.group(1)
 
-        if self.application.db.rooms.find(name=room):
-            msg = {'text': 'The room with this name is already exixsts',
-                   'status': 'error',
-                   'command': 'create'}
+        if self.application.db.rooms.find({'name': room}).count() > 0:
+            msg = {'message': 'The room with this name is already exists',
+                   'status': 'error'}
             self.ws_connection.write_message(json.dumps(msg))
             return
 
-        self.application.db.rooms.insert(room)
-        msg = {'text': 'Room was created',
-               'status': 'success',
-               'command': 'create'}
+        self.application.db.rooms.insert({'name': room})
+        msg = {'server_event': 'room_created',
+               'room': room}
 
-        self.application.rooms[room] = [self]
-        self.ws_connection.write_message(json.dumps(msg))
-        msg = {'event': 'room_created'}
+        self.send_broadcast(msg)
+
+    def leave_room(self, match):
+        """
+        Leaves the room
+        :param match:
+        :return:
+        """
+        room = match.groups(1)
+        try:
+            room_sockets = self.application.rooms[room]
+            key = room_sockets.index(self)
+            del room_sockets[key]
+        except IndexError:
+            pass
+        msg = {'server_event': 'room_left', 'room': room}
+        self.joined_rooms.remove(room)
         self.send_message(msg)
+
+    def rooms_list(self, res):
+        pyrooms = self.application.db.rooms.find().sort('name', 1)
+        rooms = []
+        for room in pyrooms:
+            rooms.append({'name': room['name'], 'joined': room['name'] in self.joined_rooms})
+        msg = {'server_event': 'rooms_list', 'list': rooms}
+        self.ws_connection.write_message(json.dumps(msg))
 
     def check_command(self, message):
         """
@@ -194,18 +220,38 @@ class WebSocketHandler(websocket.WebSocketHandler):
                 return True
         return False
 
+    def send_broadcast(self, message):
+        """
+        Sends message to all opened sockets
+        :param message:
+        :return:
+        """
+        for socket in self.application.sockets:
+                socket.ws_connection.write_message(
+                    json.dumps(message))
+
     def send_message(self, message):
+        """
+        Sends message to all room members
+        :param message:
+        :return:
+        """
         message['username'] = self.user
         message['time'] = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
         room = message.get('room')
         if room:
             self.application.db.chat.insert(message)
             del(message['_id'])
-            for socket in self.application.rooms['room']:
+            for socket in self.application.rooms[room]:
                 socket.ws_connection.write_message(
                     json.dumps(message))
 
     def open(self):
+        """
+        Trying to open connection
+        Check user authorization
+        :return:
+        """
         key = self.get_cookie('session')
         user = self.application.db.sessions.find_one({'_id': ObjectId(key)})
         if user:
@@ -224,10 +270,22 @@ class WebSocketHandler(websocket.WebSocketHandler):
         message = message.strip()
         if self.check_command(message):
             return
-        msg = json.loads(message)
+
+        try:
+            msg = json.loads(message)
+        except:
+            msg = {'status': 'error', 'message': 'Unrecognized expression'}
+            self.ws_connection.write_message(json.loads(msg))
+            return
         self.send_message(msg)
 
     def on_close(self, message=None):
+        """
+        If connection closed by client then it needs to leave all rooms
+        and delete socket from array
+        :param message:
+        :return:
+        """
         try:
             key = self.application.sockets.index(self)
             del self.application.sockets[key]
@@ -236,12 +294,23 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
         msg = {'username': self.user,
                'text': 'Has left this room'}
-        self.send_message(msg)
+        for room in self.joined_rooms:
+            msg['room'] = room
+            self.send_message(msg)
+            try:
+                room_sockets = self.application.rooms[room]
+                key = room_sockets.index(self)
+                del room_sockets[key]
+            except IndexError:
+                pass
+
+        self.joined_rooms = set()
+
 
 
 if __name__ == '__main__':
     application = Chat()
     port = os.environ.get('PORT', 5000)
     application.listen(port)
-    print "Started at port %s" % port
+    print("Started at port %s" % port)
     tornado.ioloop.IOLoop.instance().start()
