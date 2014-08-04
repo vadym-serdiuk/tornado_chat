@@ -1,3 +1,8 @@
-tornado
-pymongo
-bson
+argparse==1.2.1
+backports.ssl-match-hostname==3.4.0.2
+bson==0.3.3
+certifi==14.05.14
+pymongo==2.7.2
+pytz==2014.4
+tornado==4.0
+wsgiref==0.1.2
