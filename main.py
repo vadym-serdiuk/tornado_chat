@@ -1,8 +1,8 @@
+import calendar
 import json
 import datetime
 from operator import itemgetter
 import os
-from bson import json_util
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 import hashlib
@@ -122,7 +122,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         history = sorted(history, key=itemgetter('_id'))
         for msg in history:
             self.ws_connection.write_message(
-                json.dumps(msg, default=json_util.default))
+                json.dumps(msg))
 
     def join_room(self, match):
         """
@@ -196,14 +196,14 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
     def send_message(self, message):
         message['username'] = self.user
-        message['time'] = datetime.datetime.utcnow()
+        message['time'] = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
         room = message.get('room')
         if room:
             self.application.db.chat.insert(message)
             del(message['_id'])
             for socket in self.application.rooms['room']:
                 socket.ws_connection.write_message(
-                    json.dumps(message, default=json_util.default))
+                    json.dumps(message))
 
     def open(self):
         key = self.get_cookie('session')
