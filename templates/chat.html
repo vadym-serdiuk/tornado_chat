@@ -1,0 +1,54 @@
+<html>
+<head></head>
+<body>
+<style>
+    .messages{
+        width: 80%;
+        height: 200px;
+        overflow: scroll;
+    }
+    .message .username{
+        font-weight: bold;
+        padding-right: 5px;
+    }
+    .message .text{
+        display: block;
+    }
+    .left_panel{
+        float: left;
+        width: 20%;
+
+    }
+    .rooms_list{
+        width: 100%;
+        height: 200px;
+        overflow: scroll;
+    }
+    .invisible{
+        display: none;
+    }
+
+</style>
+<div class="left_panel">
+    <div class="rooms_list"></div>
+    <input type="text" id="room_name">
+
+    <button type="button" id="join_room">Join room</button>
+    <button type="button" id="leave_room">Leave the room</button>
+    <button type="button" id="create_room">Create room</button>
+</div>
+
+
+<div class="messages_container">
+    <div class="messages_wrapper">
+        <div class="messages"></div>
+    </div>
+
+    <input type="text" id="newmessage">
+    <button type="button" id="send">Send</button>
+
+</div>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="/static/js/scripts.js"></script>
+</body>
+</html>
