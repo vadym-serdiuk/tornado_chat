@@ -137,7 +137,6 @@ $(document).ready(function(){
 function ping(){
   if (ws){
     ws.send('/ping');
-    console.log('ping');
     setTimeout(ping, 50000);
   }
 }
@@ -222,6 +221,8 @@ function onclose(event){
     show_error(event.reason || 'Unexpected error');
     ws = null;
     document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    $('.room').removeClass('joined').removeClass('active');
+    $('.messages').remove();
     show_login();
 }
 
