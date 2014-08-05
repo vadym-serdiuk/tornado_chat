@@ -47,7 +47,8 @@ class Chat(web.Application):
 
         settings = {
             'autoreload': True,
-            'cookie_secret': "asdfasdfasgdfg2rqwtqe4f34fw34r43"
+            'cookie_secret': "asdfasdfasgdfg2rqwtqe4f34fw34r43",
+            'debug': True
         }
 
         super(Chat, self).__init__(handlers=handlers, **settings)
