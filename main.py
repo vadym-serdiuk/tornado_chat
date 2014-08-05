@@ -272,7 +272,6 @@ class WebSocketHandler(websocket.WebSocketHandler):
         Check user authorization
         :return:
         """
-        print self.request
         key = self.get_secure_cookie('session')
         if not key:
             self.close(1, 'User is not authorized')
@@ -318,7 +317,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         try:
             key = self.application.sockets.index(self)
             del self.application.sockets[key]
-        except IndexError:
+        except (IndexError, ValueError):
             pass
 
         msg = {'username': self.user,
@@ -330,7 +329,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
                 room_sockets = self.application.rooms[room]
                 key = room_sockets.index(self)
                 del room_sockets[key]
-            except IndexError:
+            except (IndexError, ValueError):
                 pass
 
 
