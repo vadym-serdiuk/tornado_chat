@@ -131,10 +131,16 @@ $(document).ready(function(){
         }else{
             $('.messages').addClass('invisible');
         }
-
-
     })
 });
+
+function ping(){
+  if (ws){
+    ws.send('/ping');
+    console.log('ping');
+    setTimeout(ping, 50000);
+  }
+}
 
 function show_login(){
     $('.window').hide();
@@ -222,6 +228,7 @@ function onclose(event){
 function onopen(){
     reload_rooms();
     show_chat();
+    setTimeout(ping, 50000);
 }
 
 function show_room(room){

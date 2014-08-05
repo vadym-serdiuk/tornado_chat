@@ -117,7 +117,8 @@ COMMANDS = (
     (re.compile(r'/join (\w{24})'), 'join_room'),
     (re.compile(r'/create ([a-zA-Z]+[\w\s]{0,30})'), 'create_room'),
     (re.compile(r'/leave (\w{24})'), 'leave_room'),
-    (re.compile(r'/rooms'), 'rooms_list')
+    (re.compile(r'/rooms'), 'rooms_list'),
+    (re.compile(r'/ping'), 'custom_ping'),
 )
 
 
@@ -223,6 +224,9 @@ class WebSocketHandler(websocket.WebSocketHandler):
         msg = {'server_event': 'rooms_list',
                'list': rooms}
         self.ws_connection.write_message(json.dumps(msg))
+
+    def custom_ping(self, match):
+        return
 
     def check_command(self, message):
         """
