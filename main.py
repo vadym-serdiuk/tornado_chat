@@ -31,9 +31,8 @@ class Chat(web.Application):
     def __init__(self):
 
         mongo_url = os.environ.get('MONGOHQ_URL', 'localhost')
-        self.db = MongoClient(mongo_url).db
-        if mongo_url != 'localhost':
-            self.db.authenticate('prom-ua', 'prom-ua')
+        client = MongoClient(mongo_url)
+        self.db = client.get_default_database()
         self.sockets = []
         self.rooms = {}
 
