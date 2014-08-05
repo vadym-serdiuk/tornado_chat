@@ -17,14 +17,13 @@ $(document).ready(function(){
     });
 
     //Initiates send login data
-    $('#login_button').on('click', function(){
+    $('#login_form').on('submit', function(e){
+        e.preventDefault();
+
         data = {
             username: $('#login_username').val(),
             password: $('#login_password').val()
         };
-
-        $('#login_username').val('');
-        $('#login_password').val('');
 
         $.ajax({
             data: data,
@@ -32,6 +31,7 @@ $(document).ready(function(){
             method: 'POST',
             dataType: 'json',
             success: function(data){
+                $('#login_form')[0].reset();
                 if (data.status == 'success')
                     connect_to_server();
                 else
@@ -44,7 +44,8 @@ $(document).ready(function(){
     });
 
     //Initiates send registration data
-    $('#signup_button').on('click', function(){
+    $('#signup_form').on('submit', function(e){
+        e.preventDefault();
         username = $('#reg_username').val();
         password = $('#reg_password1').val();
         if (password != $('#reg_password2').val()){
@@ -62,6 +63,7 @@ $(document).ready(function(){
             method: 'POST',
             dataType: 'json',
             success: function(data){
+                $('#signup_form')[0].reset();
                 if (data.status == 'success')
                     connect_to_server();
                 else
@@ -90,11 +92,23 @@ $(document).ready(function(){
         leave_room();
     });
 
-    $('#send').on('click', function(){
+    $('.send_message').submit('click', function(e){
+        e.preventDefault();
         text = $('#newmessage').val();
         if (text == '') return;
+
+        room = $('.room.active');
+        if (room.length > 0) {
+            if (!room.hasClass('joined')) {
+                show_error('Selected room is not joined');
+                return;
+            }
+        }else{
+                show_error('There is no room selected');
+            }
         data = {
-            text: text
+            text: text,
+            room: room.data('roomCode')
         };
         ws.send(JSON.stringify(data));
         if (ws.bufferedAmount == 0){
@@ -102,6 +116,23 @@ $(document).ready(function(){
         }else{
             show_error('Something wrong');
         }
+    });
+
+    $(document).on('click', '.room a', function(e){
+        e.preventDefault();
+        $('.active').removeClass('active');
+        li_el = $(this).parent();
+        li_el.addClass('active');
+
+        $('.badge', li_el).remove();
+        if (li_el.hasClass('joined')) {
+            room = li_el.data('roomCode');
+            show_room(room);
+        }else{
+            $('.messages').addClass('invisible');
+        }
+
+
     })
 });
 
@@ -112,7 +143,7 @@ function show_login(){
 
 function show_signup(){
     $('.window').hide();
-    $('#register').fadeIn().removeClass('invisible');
+    $('#signup').fadeIn().removeClass('invisible');
 }
 
 function show_chat(){
@@ -133,22 +164,20 @@ function onmessage(event){
             return;
         }
         if (data.server_event == 'room_joined'){
+            $('.room[data-room-code="'+data.room+'"]').addClass('joined');
             show_room(data.room);
             return;
         }
         if (data.server_event == 'rooms_list'){
-           rooms = data.list;
-           rooms_ul = $('.rooms_list');
-           rooms_ul.html('');
-
-           for (i=0; i < rooms.length; i++){
-               room = rooms[i];
-               rooms_ul.append('<li class="room" data-room-name="'+room.name+'">'+room.name+'</li>');
-               if (room.joined)
-                    $('#'+room_id).addClass('joined');
-           }
+            update_rooms_list(data.list);
+            return;
         }
-        return;
+        if (data.server_event == 'room_left'){
+            $('.room[data-room-code="'+data.room+'"]').removeClass('joined');
+            $('.messages.'+data.room).addClass('invisible');
+            return;
+        }
+
     }
 
     if ('status' in data) {
@@ -160,27 +189,46 @@ function onmessage(event){
     }
 
     if ('text' in data){
-        data.time = new Date(data.time.$date);
+        data.time = new Date(data.time);
         html = '<p class="message"><span class="username">' + data.username +
          '</span><span class="time">' + data.time.toTimeString().substring(0,8) +
          '</span><span class="text">' + data.text + '</span>';
-        messages = $('.messages.'+data.room)[0];
-        $('.messages').addClass('invisible')
-        messages.removeClass('invisible');
-        messages.append(html);
-        messages.scrollTop(messages.scrollHeight);
+        current_window = $('.messages.'+data.room);
+        if (current_window.length > 0) {
+            current_window.append(html);
+            current_window.scrollTop(current_window[0].scrollHeight);
+            if (current_window.hasClass('invisible')) {
+                room_link = $('.room[data-room-code="' + data.room + '"] a');
+                unread_messages = $('.badge', room_link);
+                if (unread_messages.length > 0) {
+                    i = parseInt(unread_messages.html());
+                    unread_messages.html(++i);
+                }
+                else {
+                    room_link.append('<span class="badge pull-right">1</span>');
+                }
+            }
+        }
     }
 }
 
 function onclose(event){
     show_error(event.reason || 'Unexpected error');
     ws = null;
+    document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     show_login();
 }
 
 function onopen(){
     reload_rooms();
     show_chat();
+}
+
+function show_room(room){
+    $('.messages').addClass('invisible');
+    room_messages = $('.messages.'+room);
+    room_messages.removeClass('invisible');
+    room_messages.scrollTop(room_messages[0].scrollHeight);
 }
 
 function check_room_name(room){
@@ -204,19 +252,37 @@ function create_room(){
 }
 
 function join_room(){
-    room = $('.rooms_list.active');
-    if (room.hasClass('joined')) return;
-    if ($('.messages.'+room).length == 0)
-        $('.messages_wrapper').append('<div class="messages ' + room + '"></div>');
-    command = '/join ' + room;
+    room_code = $('.room.active').data('roomCode');
+    room_el = $('.room.active')
+    if (room_el.hasClass('joined')) return;
+    if ($('.messages.'+room_code).length == 0) {
+        $('.messages').addClass('invisible');
+        $('.messages_wrapper').append('<div class="messages ' + room_code + '"></div>');
+    }
+    command = '/join ' + room_code;
     ws.send(command);
 }
 
 function leave_room(){
     room = $('.room.active');
     if (room.hasClass('joined')) {
-        command = '/leave ' + room.data('roomName');
+        command = '/leave ' + room.data('roomCode');
         ws.send(command);
+    }
+}
+
+function update_rooms_list(rooms){
+    rooms_ul = $('.rooms_list');
+    rooms_ul.html('');
+
+    for (i=0; i < rooms.length; i++){
+        room = rooms[i];
+        el = rooms_ul.append('<li class="room" data-room-code="'+room.code+'"><a href="">'+room.name+'</a></li>');
+        if (room.joined) {
+            el.addClass('joined');
+            if ($('.messages.' + room).length == 0)
+                $('.messages_wrapper').append('<div class="messages ' + room + '"></div>');
+        }
     }
 }
 

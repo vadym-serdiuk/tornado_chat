@@ -1,7 +1,6 @@
 body {
-  padding-top: 40px;
-  padding-bottom: 40px;
-  background-color: #eee;
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 .invisible{
@@ -41,9 +40,20 @@ body {
   border-top-right-radius: 0;
 }
 
-.messages{
+.messages_container{
     width: 80%;
-    height: 200px;
+    margin-left: 20%;
+    padding: 5px;
+    min-height: 100%;
+    height: auto!important;
+}
+.messages_wrapper {
+    min-height: 90%;
+    max-height: 90%;
+}
+.messages{
+    min-height: 90%;
+    max-height: 90%;
     overflow: scroll;
 }
 .message .username{
@@ -56,11 +66,15 @@ body {
 .left_panel{
     float: left;
     width: 20%;
+    padding: 5px;
+    min-height: 100%;
+    height: auto!important;
 }
 .rooms_list{
     width: 100%;
-    height: 176px;
     overflow: scroll;
+    min-height: 90%;
+    max-height: 90%;
 }
 
 .sidebar {
@@ -113,13 +127,14 @@ body {
 }
 
 #send, #submit_create_room{
-    visibility: hidden;
-    width: 0;
+    display: none;
 }
 
 #status_line{
     position: absolute;
-    bottom: 20px;
+    bottom: 70px;
+    left: 21%;
+    background-color: white;
 }
 .error{
     color: red;
@@ -127,4 +142,19 @@ body {
 
 .room.joined{
     font-weight: bold;
+}
+
+form.create_room{
+    width: 300px;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+form.send_message, .manage_buttons{
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+#newmessage{
+    width: 97%;
 }

@@ -10,19 +10,23 @@
 <div class="container-fluid">
 
     <div id="login" class="form window invisible">
-        <h3 class="heading">Please enter login information</h3>
-        <input class="form-control" id="login_username" required autofocus type="text" placeholder="Username">
-        <input class="form-control" id="login_password" required type="password" placeholder="Password">
-        <button class="btn btn-lg btn-primary btn-block" type="button" id="login_button">Login</button>
+        <form id="login_form">
+            <h3 class="heading">Please enter login information</h3>
+            <input class="form-control" id="login_username" required autofocus type="text" placeholder="Username">
+            <input class="form-control" id="login_password" required type="password" placeholder="Password">
+            <button class="btn btn-lg btn-primary btn-block" type="submit" id="login_button">Login</button>
+        </form>
         <a href="" class="register_link">Or signup</a>
     </div>
 
-    <div id="register" class="form invisible window">
+    <div id="signup" class="form invisible window">
+        <form id="signup_form">
         <h3 class="heading">Please enter registration information</h3>
-        <input class="form-control" id="reg_username" type="text" placeholder="Your username">
-        <input class="form-control" id="reg_password1" type="password" placeholder="Password">
-        <input class="form-control" id="reg_password2" type="password" placeholder="Password again">
-        <button class="btn btn-lg btn-primary btn-block" type="button" id="signup_button">Signup</button>
+            <input class="form-control" id="reg_username" type="text" placeholder="Your username">
+            <input class="form-control" id="reg_password1" type="password" placeholder="Password">
+            <input class="form-control" id="reg_password2" type="password" placeholder="Password again">
+            <button class="btn btn-lg btn-primary btn-block" type="submit" id="signup_button">Signup</button>
+        </form>
         <a href="" class="login_link">Or login</a>
     </div>
 
@@ -31,36 +35,37 @@
             <div class="left_panel">
                 <ul class="rooms_list nav nav-pills nav-stacked"></ul>
 
-                <div class="form-horizontal">
-                    <button class="btn btn-default" type="button" id="join_room">Join room</button>
-                    <button class="btn btn-default" type="button" id="leave_room">Leave the room</button>
-                </div>
-                <div class="btn-group">
-                    <button class="btn btn-default dropdown-toggle" type="button" data-toggle="dropdown">Create room</button>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <form class="create_room form-horizontal">
-                                <input class="form-control" type="text" id="room_name" class="form-control">
-                                <button type="submit" id="submit_create_room"></button>
-                            </form>
-                        </li>
-                    </ul>
+                <div class="manage_buttons">
+                    <button class="btn btn-default btn-sm" type="button" id="join_room">Join</button>
+                    <button class="btn btn-default btn-sm" type="button" id="leave_room">Leave</button>
+                    <div class="btn-group dropup">
+                        <button class="btn btn-default dropdown-toggle btn-sm" type="button" data-toggle="dropdown">Add</button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <form class="create_room form-horizontal">
+                                    <label for="room_name">Enter room name:</label>
+                                    <input class="form-control" type="text" id="room_name" class="form-control" maxlength="30">
+                                    <button type="submit" id="submit_create_room"></button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
             <div class="messages_container">
                 <div class="messages_wrapper">
-                    <div class="messages"></div>
+
                 </div>
 
-                <form>
+                <form class="send_message form-inline">
                     <input class="form-control" type="text" id="newmessage">
                     <button class="btn btn-default" type="submit" id="send">Send</button>
                 </form>
             </div>
         </div>
     </div>
-    <div id="status_line"><p class="error">asdfasdfasd</p></div>
+    <div id="status_line"></div>
 </div>
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
