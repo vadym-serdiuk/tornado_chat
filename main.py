@@ -32,6 +32,8 @@ class Chat(web.Application):
 
         mongo_url = os.environ.get('MONGOHQ_URL', 'localhost')
         self.db = MongoClient(mongo_url).db
+        if mongo_url != 'localhost':
+            self.db.authenticate('prom-ua', 'prom-ua')
         self.sockets = []
         self.rooms = {}
 
