@@ -32,7 +32,11 @@ class Chat(web.Application):
 
         mongo_url = os.environ.get('MONGOHQ_URL', 'localhost')
         client = MongoClient(mongo_url)
-        self.db = client.get_default_database()
+        try:
+            self.db = client.get_default_database()
+        except:
+            self.db = client.db
+
         self.sockets = []
         self.rooms = {}
 
@@ -268,6 +272,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         Check user authorization
         :return:
         """
+        print self.request
         key = self.get_secure_cookie('session')
         if not key:
             self.close(1, 'User is not authorized')
