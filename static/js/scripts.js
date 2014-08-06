@@ -225,8 +225,7 @@ function onmessage(event){
         }
         if (!('is_history' in data))
             $('.room[data-room-code="' + data.room + '"]').parent()
-                .effect("shake",
-                        {direction: "right", distance: 3}, 350);
+                .effect("shake", {direction: "right", distance: 3}, 350);
 
     }
 }

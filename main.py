@@ -299,6 +299,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         Check user authorization
         :return:
         """
+        print self.request
         key = self.get_secure_cookie('session')
         if not key:
             self.close(1, 'User is not authorized')
