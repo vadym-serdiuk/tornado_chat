@@ -1,7 +1,9 @@
 var ws = null;
+var first_attempt = false;
 
 $(document).ready(function(){
 
+    first_attempt = true;
     connect_to_server();
 
     $(document).on('click', 'a', function(e){
@@ -222,13 +224,19 @@ function onmessage(event){
             }
         }
         if (!('is_history' in data))
-            $('.room[data-room-code="' + data.room + '"]').effect( "shake" );
+            $('.room[data-room-code="' + data.room + '"]').parent()
+                .effect("shake",
+                        {direction: "right", distance: 3}, 350);
 
     }
 }
 
 function onclose(event){
-    show_error(event.reason || 'Unexpected error');
+    if (first_attempt)
+        first_attempt = false;
+    else {
+        show_error(event.reason || 'Unexpected error');
+    }
     ws = null;
     signout();
 }
@@ -242,8 +250,12 @@ function onopen(){
 function show_room(room){
     $('.messages').addClass('invisible');
     room_messages = $('.messages.'+room);
-    room_messages.removeClass('invisible');
-    room_messages.scrollTop(room_messages[0].scrollHeight);
+    if ($('.room[data-room-code="'+room+'"]').hasClass('joined'))
+    {
+        room_messages.removeClass('invisible');
+        room_messages.scrollTop(room_messages[0].scrollHeight);
+    }
+
 }
 
 function check_room_name(room){
@@ -293,6 +305,8 @@ function leave_room(){
 
 function update_rooms_list(rooms){
 
+    $('.messages').addClass('invisible');
+
     active_room = $('.room.active').data('roomCode');
 
     joined_rooms = $('.joined_rooms');
@@ -325,6 +339,11 @@ function update_rooms_list(rooms){
 }
 
 function signout(){
+    if (ws) {
+        ws.onclose = function(){
+        };
+        ws.close();
+    }
     document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     $('.room').remove();
     $('.messages').remove();
