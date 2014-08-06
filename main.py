@@ -8,6 +8,7 @@ from pymongo import MongoClient
 import hashlib
 import re
 import sys
+from tornado.websocket import WebSocketProtocol13
 
 __author__ = 'serdiuk'
 
@@ -129,9 +130,8 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
     @tornado.web.asynchronous
     def get(self, *args, **kwargs):
-        print(self.request)
-        sys.stdout.flush()
-        super(WebSocketHandler, self).get(*args, **kwargs)
+        self.ws_connection = WebSocketProtocol13(self)
+        self.ws_connection.accept_connection()
 
     def send_history(self, room):
         """
