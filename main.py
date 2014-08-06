@@ -130,6 +130,8 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
     @tornado.web.asynchronous
     def get(self, *args, **kwargs):
+        self.open_args = args
+        self.open_kwargs = kwargs
         self.stream = self.request.connection.detach()
         self.stream.set_close_callback(self.on_connection_close)
 
