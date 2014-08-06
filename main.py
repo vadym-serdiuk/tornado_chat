@@ -127,6 +127,12 @@ COMMANDS = (
 class WebSocketHandler(websocket.WebSocketHandler):
     user = 'unknown'
 
+    @tornado.web.asynchronous
+    def get(self, *args, **kwargs):
+        print(self.request)
+        sys.stdout.flush()
+        super(WebSocketHandler, self).get(*args, **kwargs)
+
     def send_history(self, room):
         """
         Gets today messages from room and sends their to user
@@ -299,8 +305,6 @@ class WebSocketHandler(websocket.WebSocketHandler):
         Check user authorization
         :return:
         """
-        print(self.request)
-        sys.stdout.flush()
         key = self.get_secure_cookie('session')
         if not key:
             self.close(1, 'User is not authorized')
