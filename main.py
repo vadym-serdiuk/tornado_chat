@@ -52,7 +52,7 @@ class Chat(web.Application):
         settings = {
             'autoreload': True,
             'cookie_secret': "asdfasdfasgdfg2rqwtqe4f34fw34r43",
-            'debug': True
+            'Debug': True
         }
 
         super(Chat, self).__init__(handlers=handlers, **settings)
@@ -299,7 +299,8 @@ class WebSocketHandler(websocket.WebSocketHandler):
         Check user authorization
         :return:
         """
-        print self.request
+        print(self.request)
+        sys.stdout.flush()
         key = self.get_secure_cookie('session')
         if not key:
             self.close(1, 'User is not authorized')
