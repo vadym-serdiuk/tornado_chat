@@ -44,7 +44,8 @@ body {
     width: 80%;
     margin-left: 20%;
     padding: 5px;
-    min-height: 100%;
+    min-height: 98%;
+    max-height: 98%;
     height: auto!important;
 }
 .messages_wrapper {
@@ -54,7 +55,9 @@ body {
 .messages{
     min-height: 90%;
     max-height: 90%;
-    overflow: scroll;
+    overflow-y: scroll;
+    border: rgb(219, 219, 219) 1px solid;
+    padding: 5px;
 }
 .message .username{
     font-weight: bold;
@@ -66,15 +69,22 @@ body {
 .left_panel{
     float: left;
     width: 20%;
-    padding: 5px;
-    min-height: 100%;
+    margin: 5px;
+    min-height: 98%;
     height: auto!important;
+    border: rgb(219, 219, 219) 1px solid;
 }
 .rooms_list{
     width: 100%;
-    overflow: scroll;
-    min-height: 90%;
-    max-height: 90%;
+    overflow-y: scroll;
+    min-height: 70%;
+    max-height: 70%;
+    border-bottom: rgb(219, 219, 219) 1px solid;
+    padding-bottom: 5px;
+}
+
+.rooms_list h5 {
+    padding: 0 5px;
 }
 
 .sidebar {
@@ -126,7 +136,8 @@ body {
   margin-top: 0;
 }
 
-#send, #submit_create_room{
+#send, .create_room button[type="submit"],
+.find_room button[type="submit"]{
     display: none;
 }
 
@@ -144,7 +155,8 @@ body {
     font-weight: bold;
 }
 
-form.create_room{
+form.create_room,
+form.find_room{
     width: 300px;
     padding-left: 5px;
     padding-right: 5px;
@@ -157,4 +169,29 @@ form.send_message, .manage_buttons{
 
 #newmessage{
     width: 97%;
+}
+
+.manage_buttons a {
+    padding: 2px 15px!important;
+}
+
+.manage_buttons a:hover,
+.manage_buttons a:focus {
+    text-decoration: none;
+    background-color: #eee;
+}
+
+.joined_rooms{
+    margin-bottom: 10px;
+}
+.unjoined_rooms a{
+    color: #aaaaaa;
+}
+
+.nav>li>a{
+    padding: 3px 15px;
+}
+#find_room_name{
+    margin: 2px 2px 5px 2px;
+    width: 98%;
 }

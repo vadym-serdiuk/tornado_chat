@@ -33,24 +33,32 @@
     <div id="chat" class="invisible window">
         <div class="row">
             <div class="left_panel">
-                <ul class="rooms_list nav nav-pills nav-stacked"></ul>
+                <input class="form-control" type="text" id="find_room_name" maxlength="30">
+                <div class="rooms_list">
+                    <h5>Joined rooms</h5>
+                    <ul class="joined_rooms nav nav-pills nav-stacked"></ul>
+                    <h5>Rooms, ready to join</h5>
+                    <ul class="unjoined_rooms nav nav-pills nav-stacked"></ul>
+                </div>
 
-                <div class="manage_buttons">
-                    <button class="btn btn-default btn-sm" type="button" id="join_room">Join</button>
-                    <button class="btn btn-default btn-sm" type="button" id="leave_room">Leave</button>
-                    <div class="btn-group dropup">
-                        <button class="btn btn-default dropdown-toggle btn-sm" type="button" data-toggle="dropdown">Add</button>
+                <ul class="manage_buttons nav nav-stacked">
+                    <li><a id="join_room" href>Join</a></li>
+                    <li><a id="leave_room" href>Leave</a></li>
+                    <li><div class="btn-group dropup">
+                        <a class="dropdown-toggle" href data-toggle="dropdown">Add room</a>
                         <ul class="dropdown-menu">
                             <li>
-                                <form class="create_room form-horizontal">
+                                <form class="create_room">
                                     <label for="room_name">Enter room name:</label>
-                                    <input class="form-control" type="text" id="room_name" class="form-control" maxlength="30">
-                                    <button type="submit" id="submit_create_room"></button>
+                                    <input class="form-control" type="text" id="room_name" maxlength="30">
+                                    <button type="submit"></button>
                                 </form>
                             </li>
                         </ul>
-                    </div>
-                </div>
+                    </div></li>
+                    <li><a id="signuout" href>Sign out</a></li>
+
+                </ul>
             </div>
 
             <div class="messages_container">

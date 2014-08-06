@@ -119,26 +119,32 @@ COMMANDS = (
     (re.compile(r'/leave (\w{24})'), 'leave_room'),
     (re.compile(r'/rooms'), 'rooms_list'),
     (re.compile(r'/ping'), 'custom_ping'),
+    (re.compile(r'/get_history (\w{24})'), 'get_history'),
+
 )
 
 
 class WebSocketHandler(websocket.WebSocketHandler):
     user = 'unknown'
-    joined_rooms = set()
 
     def send_history(self, room):
         """
-        Gets 5 last messages from room and sends their to user
+        Gets today messages from room and sends their to user
         :param room:
         :return:
         """
-        history = self.application.db.chat.find({'room': room})\
-                        .sort('time', -1)[:5]
+        time = datetime.datetime.utcnow()
+        time = time.replace(hour=0, minute=0, second=0)
+        timestamp = calendar.timegm(time.utctimetuple())
+
+        history = self.application.db.chat.find(
+            {'time': {'$gte': timestamp}}).sort('_id', 1)
         history = sorted(history, key=itemgetter('_id'))
         for msg in history:
             del msg['_id']
-            self.ws_connection.write_message(
-                json.dumps(msg))
+            msg['is_history'] = True
+            if self.ws_connection:
+                self.ws_connection.write_message(json.dumps(msg))
 
     def join_room(self, match):
         """
@@ -146,15 +152,21 @@ class WebSocketHandler(websocket.WebSocketHandler):
         :param room:
         :return:
         """
+        db = self.application.db
+
         room = match.group(1)
-        if not self.application.db.rooms.find({'_id': ObjectId(room)}):
+        if not db.rooms.find({'_id': ObjectId(room)}):
             msg = {'text': 'There is no room with this id',
                    'status': 'error',
                    'command': 'join'}
-            self.ws_connection.write_message(json.dumps(msg))
+            if self.ws_connection:
+                self.ws_connection.write_message(json.dumps(msg))
             return
 
-        self.joined_rooms.add(room)
+        db.joined_rooms.update({'user': self.user},
+                               {'$addToSet': {'rooms': room}},
+                               upsert=True)
+
         if room in self.application.rooms:
             self.application.rooms[room].append(self)
         else:
@@ -162,7 +174,8 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
         msg = {'server_event': 'room_joined',
                'room': room}
-        self.ws_connection.write_message(json.dumps(msg))
+        if self.ws_connection:
+            self.ws_connection.write_message(json.dumps(msg))
 
         self.send_history(room)
         msg = {'text': 'Has join this room',
@@ -180,7 +193,8 @@ class WebSocketHandler(websocket.WebSocketHandler):
         if self.application.db.rooms.find({'name': room}).count() > 0:
             msg = {'message': 'The room with this name is already exists',
                    'status': 'error'}
-            self.ws_connection.write_message(json.dumps(msg))
+            if self.ws_connection:
+                self.ws_connection.write_message(json.dumps(msg))
             return
 
         room_id = self.application.db.rooms.insert({'name': room})
@@ -208,25 +222,33 @@ class WebSocketHandler(websocket.WebSocketHandler):
                'room': room}
         self.send_message(msg)
 
-        self.joined_rooms.remove(room)
+        self.application.db.joined_rooms.update({'user': self.user},
+                                                {'$pull': {'rooms': room}})
 
         msg = {'server_event': 'room_left', 'room': room}
-        self.ws_connection.write_message(json.dumps(msg))
+        if self.ws_connection:
+            self.ws_connection.write_message(json.dumps(msg))
 
     def rooms_list(self, res):
-        pyrooms = self.application.db.rooms.find().sort('name', 1)
+        db = self.application.db
+        pyrooms = db.rooms.find().sort('name', 1)
         rooms = []
         for room in pyrooms:
             rooms.append({'code': str(room['_id']),
                           'name': room['name'],
-                          'joined': room['name'] in self.joined_rooms}
+                          'joined': str(room['_id']) in self.joined_rooms}
             )
         msg = {'server_event': 'rooms_list',
                'list': rooms}
-        self.ws_connection.write_message(json.dumps(msg))
+        if self.ws_connection:
+            self.ws_connection.write_message(json.dumps(msg))
 
     def custom_ping(self, match):
         return
+
+    def get_history(self, match):
+        room = match.group(1)
+        self.send_history(room)
 
     def check_command(self, message):
         """
@@ -265,10 +287,11 @@ class WebSocketHandler(websocket.WebSocketHandler):
         if room:
             self.application.db.chat.insert(message)
             del(message['_id'])
-            for socket in self.application.rooms[room]:
-                if socket.ws_connection:
-                    socket.ws_connection.write_message(
-                        json.dumps(message))
+            if room in self.application.rooms:
+                for socket in self.application.rooms[room]:
+                    if socket.ws_connection:
+                        socket.ws_connection.write_message(
+                            json.dumps(message))
 
     def open(self):
         """
@@ -292,6 +315,12 @@ class WebSocketHandler(websocket.WebSocketHandler):
         else:
             self.close(1, 'User is not authorized')
 
+        for room in self.joined_rooms:
+            if not room in self.application.rooms:
+                self.application.rooms[room] = []
+            if not self in self.application.rooms[room]:
+                self.application.rooms[room].append(self)
+
     def on_message(self, message):
         """
         when a message is recieved, then process command or
@@ -307,7 +336,8 @@ class WebSocketHandler(websocket.WebSocketHandler):
             msg = json.loads(message)
         except:
             msg = {'status': 'error', 'message': 'Unrecognized expression'}
-            self.ws_connection.write_message(json.loads(msg))
+            if self.ws_connection:
+                self.ws_connection.write_message(json.dumps(msg))
             return
         self.send_message(msg)
 
@@ -324,18 +354,20 @@ class WebSocketHandler(websocket.WebSocketHandler):
         except (IndexError, ValueError):
             pass
 
-        msg = {'username': self.user,
-               'text': 'Has left this room'}
-        for room in self.joined_rooms:
-            msg['room'] = room
-            self.send_message(msg)
-            try:
-                room_sockets = self.application.rooms[room]
-                key = room_sockets.index(self)
-                del room_sockets[key]
-            except (IndexError, ValueError):
-                pass
+        rooms = self.application.rooms
+        for room in rooms:
+            if self in rooms[room]:
+                key = rooms[room].index(self)
+                del rooms[room][key]
 
+    @property
+    def joined_rooms(self):
+        joined_rooms_obj = self.application.db.joined_rooms\
+            .find_one({'user': self.user})
+        joined_rooms = []
+        if joined_rooms_obj:
+            joined_rooms = joined_rooms_obj['rooms']
+        return joined_rooms
 
 if __name__ == '__main__':
     application = Chat()
