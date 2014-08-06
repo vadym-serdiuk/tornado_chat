@@ -203,7 +203,7 @@ function onmessage(event){
     }
 
     if ('text' in data){
-        data.time = new Date(data.time);
+        data.time = new Date(data.time*1000);
         html = '<p class="message"><span class="username">' + data.username +
          '</span><span class="time">' + data.time.toTimeString().substring(0,8) +
          '</span><span class="text">' + data.text + '</span>';
@@ -223,8 +223,8 @@ function onmessage(event){
                 }
             }
         }
-        if (!('is_history' in data))
-            $('.room[data-room-code="' + data.room + '"]').parent()
+        if (!('is_history' in data) && !('self' in data))
+            $('.room[data-room-code="' + data.room + '"]')
                 .effect("shake", {direction: "right", distance: 3}, 350);
 
     }

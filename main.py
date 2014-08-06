@@ -290,6 +290,11 @@ class WebSocketHandler(websocket.WebSocketHandler):
             del(message['_id'])
             if room in self.application.rooms:
                 for socket in self.application.rooms[room]:
+                    if socket == self:
+                        message['self'] = True
+                    else:
+                        if 'self' in message:
+                            del message['self']
                     if socket.ws_connection:
                         socket.ws_connection.write_message(
                             json.dumps(message))

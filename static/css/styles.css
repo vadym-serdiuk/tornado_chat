@@ -188,16 +188,31 @@ form.send_message, .manage_buttons{
 .unjoined_rooms a{
     color: #aaaaaa;
 }
-.nav>li>a{
-    padding: 3px 15px;
+.room a{
+    padding: 3px 15px!important;
+    margin: 0 15px!important;
+    position: relative;
+    display: block;
+    border-radius: 4px;
 }
-.nav .room {
-    margin: 0 5px;
+.room.active a{
+    color: #fff;
+    background-color: #428bca;
 }
 #find_room_name{
     margin: 2px 2px 5px 2px;
     width: 98%;
 }
 .ui-effects-wrapper{
-    height: 26px!important;
+    /*height: 2em!important;*/
+}
+.room a>.badge {
+    margin-left: 3px!important;
+}
+
+.nav li+div{
+    margin-top: 2px;
+}
+.nav div+li{
+    margin-top: 2px;
 }
