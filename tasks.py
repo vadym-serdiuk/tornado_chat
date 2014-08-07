@@ -5,7 +5,7 @@ import pika
 EXCHANGE_NAME = 'exchange'
 EXCHANGE_TYPE = 'direct'
 QUEUE = 'screenshots'
-ROUTING_KEY = 'screenshot_copleted'
+ROUTING_KEY = 'completed'
 
 connection = pika.BlockingConnection(pika.ConnectionParameters(
         host='localhost'))
