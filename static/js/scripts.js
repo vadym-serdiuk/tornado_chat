@@ -34,10 +34,10 @@ $(document).ready(function(){
             method: 'POST',
             dataType: 'json',
             success: function(data){
-                $('#login_form')[0].reset();
-                if (data.status == 'success')
+                if (data.status == 'success') {
+                    $('#login_form')[0].reset();
                     connect_to_server();
-                else
+                }else
                     show_error(data.message);
             },
             error: function(error){
@@ -53,6 +53,7 @@ $(document).ready(function(){
         password = $('#reg_password1').val();
         if (password != $('#reg_password2').val()){
             show_error('passwords do not match. Please check');
+            return;
         }
 
         data = {
@@ -66,10 +67,11 @@ $(document).ready(function(){
             method: 'POST',
             dataType: 'json',
             success: function(data){
-                $('#signup_form')[0].reset();
-                if (data.status == 'success')
+
+                if (data.status == 'success') {
+                    $('#signup_form')[0].reset();
                     connect_to_server();
-                else
+                }else
                     show_error(data.message);
             },
             error: function(error){

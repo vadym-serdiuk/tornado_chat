@@ -3,12 +3,16 @@ import json
 import datetime
 from operator import itemgetter
 import os
+import uuid
 from bson.objectid import ObjectId
+from pika import TornadoConnection
+import pika
 from pymongo import MongoClient
 import hashlib
 import re
 import sys
-from tornado.websocket import WebSocketProtocol13
+from tornado.web import asynchronous, HTTPError
+import time
 
 __author__ = 'serdiuk'
 
@@ -28,6 +32,26 @@ def start_session(handler, username):
     handler.set_secure_cookie('session', str(key))
 
 
+def send_bot_message(func):
+    """
+    Decorator to process calculator commands
+    :param func:
+    :return:
+    """
+    def wrapper(self, match, msg):
+        msg = json.loads(msg.decode())
+        res = func(self, match)
+        if self.ws_connection:
+            message = {'username': 'Bot',
+                       'time': calendar.timegm(datetime.datetime.utcnow().utctimetuple()),
+                       'self': True,
+                       'room': msg['room'],
+                       'text': str(res)}
+            self.ws_connection.write_message(json.dumps(message))
+    return wrapper
+
+
+
 class Chat(web.Application):
     def __init__(self):
 
@@ -45,7 +69,7 @@ class Chat(web.Application):
             (r'^/$', MainHandler),
             (r'^/login$', LoginHandler),
             (r'^/signup$', SignupHandler),
-            (r'^/static/(.*)', tornado.web.StaticFileHandler,
+            (r'^/static/(.*)', web.StaticFileHandler,
                 {'path': 'static/'}),
             (r'^/chat$', WebSocketHandler),
         ]
@@ -75,11 +99,28 @@ class MainHandler(web.RequestHandler):
 
 
 class SignupHandler(web.RequestHandler):
+    """
+    User registration handler
+    Data is sent by the POST method
+    """
+    @asynchronous
     def post(self, *args, **kwargs):
-        username = self.get_argument('username')
-        password = self.get_argument('password')
+        username = self.get_argument('username', '').lower()
+        if not re.match(r'[a-z]\w+', username):
+            data = {'status': 'error',
+                    'message': 'Username is wrong. '
+                               'It must be more than 2 characters '
+                               'long and without spaces.'}
+            self.finish(json.dumps(data))
+            return
 
-        if self.application.db.users.find_one({'username': username}):
+        password = self.get_argument('password', '')
+        if password == '':
+            data = {'status': 'error', 'message': 'password cannot be empty'}
+            self.finish(json.dumps(data))
+            return
+
+        if self.application.db.users.find_one({'username': username.lower()}):
             data = {'status': 'error',
                     'message': 'This username already is in use'}
         else:
@@ -95,11 +136,12 @@ class LoginHandler(web.RequestHandler):
     Client send by method POST authentication data
     If user is found, then it needs to start session
     """
+    @asynchronous
     def post(self, *args, **kwargs):
 
         self.clear_cookie('session')
-        username = self.get_argument('username')
-        password = self.get_argument('password')
+        username = self.get_argument('username', '').lower()
+        password = self.get_argument('password', '')
         if not username:
             data = {"status": "error", "message": "username is empty"}
         elif not password:
@@ -112,17 +154,18 @@ class LoginHandler(web.RequestHandler):
         self.finish(json.dumps(data))
 
 
-
 COMMANDS = (
-
     (re.compile(r'/join (\w{24})'), 'join_room'),
     (re.compile(r'/create ([a-zA-Z]+[\w\s]{0,30})'), 'create_room'),
     (re.compile(r'/leave (\w{24})'), 'leave_room'),
     (re.compile(r'/rooms'), 'rooms_list'),
     (re.compile(r'/ping'), 'custom_ping'),
     (re.compile(r'/get_history (\w{24})'), 'get_history'),
-
+    (re.compile(r'/sum\s*\((\d[\d\,\s]*)\)'), 'sum'),
+    (re.compile(r'/mean\s*\((\d[\d\,\s]*)\)'), 'mean')
 )
+
+re_url = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 
 
 class WebSocketHandler(websocket.WebSocketHandler):
@@ -139,7 +182,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         timestamp = calendar.timegm(time.utctimetuple())
 
         history = self.application.db.chat.find(
-            {'time': {'$gte': timestamp}}).sort('_id', 1)
+            {'time': {'$gte': timestamp}, 'room': room}).sort('_id', 1)
         history = sorted(history, key=itemgetter('_id'))
         for msg in history:
             del msg['_id']
@@ -147,7 +190,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
             if self.ws_connection:
                 self.ws_connection.write_message(json.dumps(msg))
 
-    def join_room(self, match):
+    def join_room(self, match, message):
         """
         Join the room for recieving messages from this room
         :param room:
@@ -183,7 +226,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
                'room': room}
         self.send_message(msg)
 
-    def create_room(self, match):
+    def create_room(self, match, message):
         """
         Creates the room if it is not exists
         :param match:
@@ -204,7 +247,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
 
         self.send_broadcast(msg)
 
-    def leave_room(self, match):
+    def leave_room(self, match, message):
         """
         Leaves the room
         :param match:
@@ -230,7 +273,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         if self.ws_connection:
             self.ws_connection.write_message(json.dumps(msg))
 
-    def rooms_list(self, res):
+    def rooms_list(self, res, message):
         db = self.application.db
         pyrooms = db.rooms.find().sort('name', 1)
         rooms = []
@@ -244,12 +287,30 @@ class WebSocketHandler(websocket.WebSocketHandler):
         if self.ws_connection:
             self.ws_connection.write_message(json.dumps(msg))
 
-    def custom_ping(self, match):
+    def custom_ping(self, match, message):
         return
 
-    def get_history(self, match):
+    def get_history(self, match, message):
         room = match.group(1)
         self.send_history(room)
+
+    @send_bot_message
+    def sum(self, match):
+
+        arg = match.group(1)
+        list_numbers = arg.split(',')
+        list_numbers = [int(el.strip()) for el in list_numbers]
+        res = sum(list_numbers)
+        return res
+
+    @send_bot_message
+    def mean(self, match):
+
+        arg = match.group(1)
+        list_numbers = arg.split(',')
+        list_numbers = [int(el.strip()) for el in list_numbers]
+        res = sum(list_numbers) / len(list_numbers)
+        return res
 
     def check_command(self, message):
         """
@@ -258,12 +319,22 @@ class WebSocketHandler(websocket.WebSocketHandler):
         :param message:
         :return:
         """
-        for command in COMMANDS:
-            res = re.match(command[0], message)
-            if res:
-                handler = getattr(self, command[1])
-                handler(res)
-                return True
+
+        try:
+            message_json = json.loads(message.decode())
+            text = message_json.get('text')
+        except:
+            text = message
+
+        if re.match(r'/.*', text):
+
+            for command in COMMANDS:
+                res = re.match(command[0], text)
+                if res:
+                    handler = getattr(self, command[1])
+                    handler(res, message)
+                    return True
+            return True
         return False
 
     def send_broadcast(self, message):
@@ -285,9 +356,22 @@ class WebSocketHandler(websocket.WebSocketHandler):
         message['username'] = self.user
         message['time'] = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
         room = message.get('room')
+        text = message['text']
+
         if room:
+
+            urls = re.findall(re_url, text)
+            urls_list = []
+            for url in urls:
+                id = str(uuid.uuid1())
+                url_obj = {'id': id, 'url': url}
+                urls_list.append(url_obj)
+            message[urls] = urls
+            self.application.db.screenshots.insert(urls)
             self.application.db.chat.insert(message)
+            message['id'] = str(message['_id'])
             del(message['_id'])
+
             if room in self.application.rooms:
                 for socket in self.application.rooms[room]:
                     if socket == self:
@@ -345,6 +429,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
             if self.ws_connection:
                 self.ws_connection.write_message(json.dumps(msg))
             return
+
         self.send_message(msg)
 
     def on_close(self, message=None):
@@ -375,9 +460,65 @@ class WebSocketHandler(websocket.WebSocketHandler):
             joined_rooms = joined_rooms_obj['rooms']
         return joined_rooms
 
+
+class PikaClient(object):
+
+    def __init__(self, io_loop):
+        self.io_loop = io_loop
+
+        self.connected = False
+        self.connecting = False
+        self.connection = None
+        self.channel = None
+        self.message_count = 0
+
+    def connect(self):
+        if self.connecting:
+            print('PikaClient: Already connected to RabbitMQ')
+            return
+
+        print('PikaClient: Connecting to RabbitMQ')
+        self.connecting = True
+
+        cred = pika.PlainCredentials('guest', 'guest')
+        param = pika.ConnectionParameters(
+            host='localhost',
+            port=5672,
+            virtual_host='/',
+            credentials=cred
+        )
+        self.connection = TornadoConnection(param,
+            on_open_callback=self.on_connected,stop_ioloop_on_close=False)
+        self.connection.add_on_close_callback(self.on_closed)
+
+    def on_connected(self, connection):
+        print('PikaClient: connected to RabbitMQ')
+        self.connected = True
+        self.connection = connection
+        # now you are able to call the pika api to do things
+        # this could be exchange setup for websocket connections to
+        # basic_publish to later.
+        self.connection.channel(self.on_channel_open)
+
+    def on_channel_open(self, channel):
+        self.channel = channel
+
+    def on_closed(self, connection):
+        print('PikaClient: rabbit connection closed')
+        self.io_loop.stop()
+
 if __name__ == '__main__':
+
+
     application = Chat()
+    io_loop = tornado.ioloop.IOLoop.instance()
+    pc = PikaClient(io_loop)
+    application.pc = pc
+    application.pc.connect()
     port = os.environ.get('PORT', 5000)
     application.listen(port)
     print("Started at port %s" % port)
-    tornado.ioloop.IOLoop.instance().start()
+    try:
+        io_loop.start()
+    except KeyboardInterrupt:
+        io_loop.stop()
