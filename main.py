@@ -5,14 +5,12 @@ from operator import itemgetter
 import os
 import uuid
 from bson.objectid import ObjectId
-from pika import TornadoConnection
-import pika
+from tornado_consumer import TornadoConsumer
 from pymongo import MongoClient
 import hashlib
 import re
 import sys
 from tornado.web import asynchronous, HTTPError
-import time
 
 __author__ = 'serdiuk'
 
@@ -53,7 +51,17 @@ def send_bot_message(func):
 
 
 class Chat(web.Application):
+
     def __init__(self):
+
+        self.QUEUE = 'screenshots'
+        self.EXCHANGE = 'exchange'
+        self.ROUTING_KEY = 'completed'
+
+        rabbit_url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost/%2F')
+
+        self.rabbit_connection = TornadoConsumer(rabbit_url)
+        self.rabbit_connection.connect(self.on_open_connection)
 
         mongo_url = os.environ.get('MONGOHQ_URL', 'localhost')
         client = MongoClient(mongo_url)
@@ -91,6 +99,48 @@ class Chat(web.Application):
             return True
         else:
             return False
+
+    def on_open_connection(self, connection):
+        self.rabbit_connection.add_onconnection_close_callback()
+        self.rabbit_connection.connection.channel(on_open_callback=self.on_channel_open)
+
+    def on_channel_open(self, channel):
+        self._channel = channel
+        self._channel.exchange_declare(self.on_exchange_declareok,
+                                       self.EXCHANGE, type='direct')
+
+    def on_exchange_declareok(self, unused):
+        self._channel.queue_declare(self.on_queue_declareok, self.QUEUE)
+
+    def on_queue_declareok(self, method_frame):
+        self._channel.queue_bind(self.on_bindok, self.QUEUE,
+                                 self.EXCHANGE, self.ROUTING_KEY)
+
+    def on_bindok(self, unused_frame):
+        self.add_on_cancel_callback()
+        self._consumer_tag = self._channel.basic_consume(self.on_message,
+                                                         self.QUEUE)
+
+    def add_on_cancel_callback(self):
+        self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
+
+    def on_consumer_cancelled(self, method_frame):
+        if self._channel:
+            self._channel.close()
+
+    def on_message(self, unused_channel, basic_deliver, properties, body):
+        print('Message recieved %s', body)
+        self._channel.basic_ack(basic_deliver.delivery_tag)
+
+    def stop_consuming(self):
+        if self._channel:
+            self._channel.basic_cancel(self.on_cancelok, self._consumer_tag)
+
+    def on_cancelok(self, unused_frame):
+        self.close_channel()
+
+    def close_channel(self):
+        self._channel.close()
 
 
 class MainHandler(web.RequestHandler):
@@ -461,64 +511,14 @@ class WebSocketHandler(websocket.WebSocketHandler):
         return joined_rooms
 
 
-class PikaClient(object):
-
-    def __init__(self, io_loop):
-        self.io_loop = io_loop
-
-        self.connected = False
-        self.connecting = False
-        self.connection = None
-        self.channel = None
-        self.message_count = 0
-
-    def connect(self):
-        if self.connecting:
-            print('PikaClient: Already connected to RabbitMQ')
-            return
-
-        print('PikaClient: Connecting to RabbitMQ')
-        self.connecting = True
-
-        cred = pika.PlainCredentials('guest', 'guest')
-        param = pika.ConnectionParameters(
-            host='localhost',
-            port=5672,
-            virtual_host='/',
-            credentials=cred
-        )
-        self.connection = TornadoConnection(param,
-            on_open_callback=self.on_connected,stop_ioloop_on_close=False)
-        self.connection.add_on_close_callback(self.on_closed)
-
-    def on_connected(self, connection):
-        print('PikaClient: connected to RabbitMQ')
-        self.connected = True
-        self.connection = connection
-        # now you are able to call the pika api to do things
-        # this could be exchange setup for websocket connections to
-        # basic_publish to later.
-        self.connection.channel(self.on_channel_open)
-
-    def on_channel_open(self, channel):
-        self.channel = channel
-
-    def on_closed(self, connection):
-        print('PikaClient: rabbit connection closed')
-        self.io_loop.stop()
-
 if __name__ == '__main__':
 
-
-    application = Chat()
     io_loop = tornado.ioloop.IOLoop.instance()
-    pc = PikaClient(io_loop)
-    application.pc = pc
-    application.pc.connect()
+    application = Chat()
     port = os.environ.get('PORT', 5000)
     application.listen(port)
     print("Started at port %s" % port)
     try:
         io_loop.start()
-    except KeyboardInterrupt:
+    except:
         io_loop.stop()
