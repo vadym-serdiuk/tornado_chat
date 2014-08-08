@@ -203,14 +203,15 @@ function onmessage(event){
             reload_rooms();
             return;
         }
-
         if (data.server_event == 'screenshot_completed'){
             $('img#'+data.id).attr('src', data.src).removeClass('loading');
-
             reload_rooms();
             return;
         }
-
+        if (data.server_event == 'screenshot_error') {
+            $('img#'+data.id).remove();
+            scroll_current_window();
+        }
     }
 
     if ('status' in data) {

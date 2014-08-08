@@ -140,7 +140,8 @@ class Chat(web.Application):
     def on_message(self, unused_channel, basic_deliver, properties, body):
         if basic_deliver.routing_key == self.COMPLETE_ROUTING_KEY:
             print('Screenshot complete message recieved %s', body)
-            self.send_event_to_sockets(json.loads(body)['id'])
+            message = json.loads(body)
+            self.send_event_to_sockets(message['id'], message['canceled'])
             self._channel.basic_ack(basic_deliver.delivery_tag)
 
     def stop_consuming(self):
@@ -169,15 +170,23 @@ class Chat(web.Application):
         message = {'urls': urls}
         self.publish_message(message, self.START_ROUTING_KEY)
 
-    def send_event_to_sockets(self, id):
-        url = self.db.urls.find_one({'_id': ObjectId(id)})
-        if url:
-            message = {'server_event': 'screenshot_completed',
-                       'id': id,
-                       'src': url['src']}
-            for socket in self.sockets:
-                if socket.ws_connection:
-                    socket.ws_connection.write_message(json.dumps(message))
+    def send_event_to_sockets(self, id, canceled):
+        if canceled:
+            message = {'server_event': 'screenshot_error',
+                       'id': id}
+        else:
+            url = self.db.urls.find_one({'_id': ObjectId(id)})
+            if url:
+                message = {'server_event': 'screenshot_completed',
+                           'id': id,
+                           'src': url['src']}
+            else:
+                message = {'server_event': 'screenshot_error',
+                           'id': id}
+
+        for socket in self.sockets:
+            if socket.ws_connection:
+                socket.ws_connection.write_message(json.dumps(message))
 
 class MainHandler(web.RequestHandler):
     def get(self, *args, **kwargs):

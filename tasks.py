@@ -41,8 +41,8 @@ def publish_message(message, key):
                           json.dumps(message, ensure_ascii=False),
                           properties)
     
-def publish_screenshot_completed(id):
-        message = {'id': id}
+def publish_screenshot_completed(id, canceled=False):
+        message = {'id': id, 'canceled': canceled}
         publish_message(message, COMPLETE_ROUTING_KEY)
 
 
@@ -117,9 +117,20 @@ def check_screnshots(id_webshot, id_url):
         db.urls.update({'_id': ObjectId(id_url)},
             {'$inc': {'errors': 1}})
         url = db.urls.find_one({'_id': ObjectId(id_url)})
-        if url['errors'] < 3:
-            time.sleep(10)
-            publish_screenshots_getting([id_url])
+        if url:
+            if url['errors'] < 3:
+                publish_screenshots_getting([id_url])
+            else:
+                message = db.chat.find_one({'urls.id': id_url})
+                if message:
+                    message['urls'] = \
+                        [url for url in message['urls'] if url['id']!=id_url]
+                    if message['urls'] == []:
+                        del message['urls']
+                    db.chat.save(message)
+                db.urls.remove({'_id': ObjectId(id_url)})
+                publish_screenshot_completed(id_url, True)
+
 
 channel.exchange_declare(EXCHANGE_NAME)
 channel.queue_declare(queue=QUEUE)
