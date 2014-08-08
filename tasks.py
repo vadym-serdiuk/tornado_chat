@@ -1,3 +1,5 @@
+import os
+
 __author__ = 'vserdyuk'
 
 import pika
@@ -7,8 +9,8 @@ EXCHANGE_TYPE = 'direct'
 QUEUE = 'screenshots'
 ROUTING_KEY = 'completed'
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(
-        host='localhost'))
+rabbit_url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost/%2F')
+connection = pika.BlockingConnection(pika.URLParameters(rabbit_url))
 channel = connection.channel()
 
 channel.queue_declare(queue=QUEUE)
