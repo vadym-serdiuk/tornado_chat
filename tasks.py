@@ -128,7 +128,7 @@ def check_screnshots(id_webshot, id_url):
             time.sleep(10)
             publish_screenshots_getting([id_url])
 
-
+channel.exchange_declare(EXCHANGE_NAME)
 channel.queue_declare(queue=QUEUE)
 channel.queue_bind(exchange=EXCHANGE_NAME,
                    queue=QUEUE,
