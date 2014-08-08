@@ -101,6 +101,7 @@ class Chat(web.Application):
             return False
 
     def on_open_connection(self, connection):
+        print('RabbitMQ connection started')
         self.rabbit_connection.add_onconnection_close_callback()
         self.rabbit_connection.connection.channel(on_open_callback=self.on_channel_open)
 

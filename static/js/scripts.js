@@ -292,14 +292,17 @@ function join_room() {
         show_room(room_code);
         return;
     }
+    $('.messages.'+room_code).html('');
     command = '/join ' + room_code;
     ws.send(command);
 }
 
 function leave_room(){
     room = $('.room.active');
+    room_code = room.data('roomCode');
+    $('.messages.'+room.data).html('');
     if (room.hasClass('joined')) {
-        command = '/leave ' + room.data('roomCode');
+        command = '/leave ' + room_code;
         ws.send(command);
     }
 }
