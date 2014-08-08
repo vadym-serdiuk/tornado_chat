@@ -190,6 +190,7 @@ function onmessage(event){
             return;
         }
         if (data.server_event == 'room_left'){
+            $('.messages.'+data.room).html('');
             reload_rooms();
             return;
         }
@@ -300,7 +301,6 @@ function join_room() {
 function leave_room(){
     room = $('.room.active');
     room_code = room.data('roomCode');
-    $('.messages.'+room.data).html('');
     if (room.hasClass('joined')) {
         command = '/leave ' + room_code;
         ws.send(command);
