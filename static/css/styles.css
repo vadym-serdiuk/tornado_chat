@@ -66,6 +66,15 @@ body {
 .message .text{
     display: block;
 }
+.message img{
+    width: 240px;
+    border: #aaaaaa solid 1px;
+}
+
+.message img.loading{
+    width: 50px;
+    border: none;
+}
 .left_panel{
     float: left;
     width: 20%;

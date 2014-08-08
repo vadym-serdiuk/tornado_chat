@@ -3,8 +3,11 @@ import json
 import datetime
 from operator import itemgetter
 import os
+from urllib import urlencode
+import urllib2
 import uuid
 from bson.objectid import ObjectId
+import pika
 from tornado_consumer import TornadoConsumer
 from pymongo import MongoClient
 import hashlib
@@ -15,6 +18,7 @@ from tornado.web import asynchronous, HTTPError
 __author__ = 'serdiuk'
 
 import tornado
+import time
 from tornado import web, ioloop, websocket
 
 def make_password(password):
@@ -54,9 +58,12 @@ class Chat(web.Application):
 
     def __init__(self):
 
-        self.QUEUE = 'screenshots'
-        self.EXCHANGE = 'exchange'
-        self.ROUTING_KEY = 'completed'
+        self.QUEUE = 'complete'
+        self.EXCHANGE = 'chat'
+        self.COMPLETE_ROUTING_KEY = 'completed'
+        self.START_ROUTING_KEY = 'get'
+        self.CHECK_ROUTING_KEY = 'check'
+        self.SCRENSHOTS_PATH = 'static/screenshots'
 
         rabbit_url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost/%2F')
 
@@ -114,13 +121,14 @@ class Chat(web.Application):
         self._channel.queue_declare(self.on_queue_declareok, self.QUEUE)
 
     def on_queue_declareok(self, method_frame):
-        self._channel.queue_bind(self.on_bindok, self.QUEUE,
-                                 self.EXCHANGE, self.ROUTING_KEY)
-
-    def on_bindok(self, unused_frame):
         self.add_on_cancel_callback()
-        self._consumer_tag = self._channel.basic_consume(self.on_message,
-                                                         self.QUEUE)
+        self._channel.queue_bind(self.on_bind_ok, self.QUEUE,
+                                 self.EXCHANGE, self.COMPLETE_ROUTING_KEY)
+
+    def on_bind_ok(self, unused_frame):
+        self._consumer_tag = self._channel.basic_consume(
+            self.on_message,
+            self.QUEUE)
 
     def add_on_cancel_callback(self):
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
@@ -130,8 +138,10 @@ class Chat(web.Application):
             self._channel.close()
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
-        print('Message recieved %s', body)
-        self._channel.basic_ack(basic_deliver.delivery_tag)
+        if basic_deliver.routing_key == self.COMPLETE_ROUTING_KEY:
+            print('Screenshot complete message recieved %s', body)
+            self.send_event_to_sockets(json.loads(body)['id'])
+            self._channel.basic_ack(basic_deliver.delivery_tag)
 
     def stop_consuming(self):
         if self._channel:
@@ -143,6 +153,30 @@ class Chat(web.Application):
     def close_channel(self):
         self._channel.close()
 
+    def publish_message(self, message, key):
+        if self.rabbit_connection.closing:
+            print("Could not publish message queue. "
+                  "Connection to RabbitMQ is closed.")
+            return
+
+        properties = pika.BasicProperties(content_type='application/json')
+
+        self._channel.basic_publish(self.EXCHANGE, key,
+                                    json.dumps(message, ensure_ascii=False),
+                                    properties)
+
+    def publish_screenshots_getting(self, urls):
+        message = {'urls': urls}
+        self.publish_message(message, self.START_ROUTING_KEY)
+
+    def send_event_to_sockets(self, id):
+        url = self.db.urls.find_one({'_id': ObjectId(id)})
+        message = {'server_event': 'screenshot_completed',
+                   'id': id,
+                   'name': url['name']}
+        for socket in self.sockets:
+            if socket.ws_connection:
+                socket.ws_connection.write_message(json.dumps(message))
 
 class MainHandler(web.RequestHandler):
     def get(self, *args, **kwargs):
@@ -414,12 +448,18 @@ class WebSocketHandler(websocket.WebSocketHandler):
             urls = re.findall(re_url, text)
             urls_list = []
             for url in urls:
-                id = str(uuid.uuid1())
-                url_obj = {'id': id, 'url': url}
+                name = str(uuid.uuid1())
+                url_obj = {'name': name, 'url': url}
                 urls_list.append(url_obj)
-            if urls:
-                message['urls'] = urls
-                self.application.db.screenshots.insert(urls)
+            if urls_list:
+                message['urls'] = urls_list
+                self.application.db.urls.insert(urls_list)
+                for url in urls_list:
+                    url['id'] = str(url['_id'])
+                    del url['_id']
+                self.application.publish_screenshots_getting(
+                    [url['id'] for url in urls_list])
+
             self.application.db.chat.insert(message)
             message['id'] = str(message['_id'])
             del(message['_id'])
