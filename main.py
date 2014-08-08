@@ -416,8 +416,9 @@ class WebSocketHandler(websocket.WebSocketHandler):
                 id = str(uuid.uuid1())
                 url_obj = {'id': id, 'url': url}
                 urls_list.append(url_obj)
-            message[urls] = urls
-            self.application.db.screenshots.insert(urls)
+            if urls:
+                message['urls'] = urls
+                self.application.db.screenshots.insert(urls)
             self.application.db.chat.insert(message)
             message['id'] = str(message['_id'])
             del(message['_id'])
