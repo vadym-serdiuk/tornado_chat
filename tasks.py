@@ -102,22 +102,15 @@ def check_screnshots(id_webshot, id_url):
     if data['status'] in('in_queue', 'in_process'):
         publish_start_checking(id_webshot, id_url)
     elif data['status'] == 'finished':
-        try:
-            f = urllib2.urlopen(data['screenshot_url'])
-        except:
-            publish_start_checking(id_webshot, id_url)
-            return
 
         url = db.urls.find_one({'_id': ObjectId(id_url)})
-        filename = os.path.join(SCRENSHOTS_PATH, '%s.png'
-                                % url['name'])
-        with open(filename, 'w') as f_screenshot:
-            f_screenshot.write(f.read())
-
+        url['src'] = data['screenshot_url']
+        db.urls.save(url)
         for message in db.chat.find({'urls.id': id_url}):
             for url in message['urls']:
                 if url['id'] == id_url:
                     url['ready'] = True
+                    url['src'] = data['screenshot_url']
             db.chat.save(message)
         publish_screenshot_completed(id_url)
     else:

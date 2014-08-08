@@ -171,12 +171,13 @@ class Chat(web.Application):
 
     def send_event_to_sockets(self, id):
         url = self.db.urls.find_one({'_id': ObjectId(id)})
-        message = {'server_event': 'screenshot_completed',
-                   'id': id,
-                   'name': url['name']}
-        for socket in self.sockets:
-            if socket.ws_connection:
-                socket.ws_connection.write_message(json.dumps(message))
+        if url:
+            message = {'server_event': 'screenshot_completed',
+                       'id': id,
+                       'src': url['src']}
+            for socket in self.sockets:
+                if socket.ws_connection:
+                    socket.ws_connection.write_message(json.dumps(message))
 
 class MainHandler(web.RequestHandler):
     def get(self, *args, **kwargs):

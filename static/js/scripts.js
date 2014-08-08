@@ -205,7 +205,7 @@ function onmessage(event){
         }
 
         if (data.server_event == 'screenshot_completed'){
-            $('img#'+data.id).attr('src', '/static/screenshots/'+data.name+'.png').removeClass('loading');
+            $('img#'+data.id).attr('src', data.src).removeClass('loading');
 
             reload_rooms();
             return;
@@ -230,7 +230,7 @@ function onmessage(event){
             for (i = 0; i < data.urls.length; i++) {
                 url = data.urls[i];
                 if (url.ready) {
-                    html = html + '<img id="'+url.id+'" src="/static/screenshots/' + url.name + '.png">';
+                    html = html + '<img id="'+url.id+'" src="' + url.src + '">';
                 }else{
                     html = html + '<img class="loading" id="'+url.id+'" src="/static/images/loading.gif">';
                 }
