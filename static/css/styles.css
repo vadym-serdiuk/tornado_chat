@@ -146,7 +146,7 @@ body {
   margin-top: 0;
 }
 
-#send, .create_room button[type="submit"],
+.create_room button[type="submit"],
 .find_room button[type="submit"]{
     display: none;
 }
@@ -175,10 +175,6 @@ form.find_room{
 form.send_message, .manage_buttons{
     margin-top: 5px;
     margin-bottom: 5px;
-}
-
-#newmessage{
-    width: 97%;
 }
 
 .manage_buttons a {
@@ -224,4 +220,7 @@ form.send_message, .manage_buttons{
 }
 .nav div+li{
     margin-top: 2px;
+}
+.send-group{
+    width: 99%;
 }
