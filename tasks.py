@@ -1,3 +1,5 @@
+__author__ = 'vserdyuk'
+
 import json
 import os
 import time
@@ -5,9 +7,6 @@ from urllib import urlencode
 import urllib2
 from bson import ObjectId
 from pymongo import MongoClient
-
-__author__ = 'vserdyuk'
-
 import pika
 
 EXCHANGE_NAME = 'chat'
@@ -17,8 +16,6 @@ QUEUE = 'process'
 START_ROUTING_KEY = 'get'
 CHECK_ROUTING_KEY = 'check'
 COMPLETE_ROUTING_KEY = 'completed'
-
-SCRENSHOTS_PATH = 'static/screenshots/'
 
 rabbit_url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost/%2F')
 

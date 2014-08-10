@@ -1,24 +1,21 @@
+__author__ = 'serdiuk'
+
 import calendar
 import json
 import datetime
 from operator import itemgetter
 import os
-from urllib import urlencode
-import urllib2
 import uuid
 from bson.objectid import ObjectId
 import pika
+from tornado.escape import xhtml_escape
 from tornado_consumer import TornadoConsumer
 from pymongo import MongoClient
 import hashlib
 import re
 import sys
-from tornado.web import asynchronous, HTTPError
-
-__author__ = 'serdiuk'
-
+from tornado.web import asynchronous
 import tornado
-import time
 from tornado import web, ioloop, websocket
 
 def make_password(password):
@@ -452,9 +449,9 @@ class WebSocketHandler(websocket.WebSocketHandler):
         message['time'] = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
         room = message.get('room')
         text = message['text']
+        message['text'] = xhtml_escape(text)
 
         if room:
-
             urls = re.findall(re_url, text)
             urls_list = []
             for url in urls:
