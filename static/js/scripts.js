@@ -41,7 +41,8 @@ $(document).ready(function(){
                     show_error(data.message);
             },
             error: function(error){
-                show_error(error);
+                error_text = error.responseText || 'Unexpected error';
+                show_error(error_text);
             }
        });
     });
@@ -75,7 +76,8 @@ $(document).ready(function(){
                     show_error(data.message);
             },
             error: function(error){
-                show_error(error);
+                error_text = error.responseText || 'Unexpected error';
+                show_error(error_text);
             }
        });
     });
@@ -144,7 +146,13 @@ $(document).ready(function(){
         }else{
             $('.messages').addClass('invisible');
         }
-    })
+    });
+
+    $(document).on('load', '.message img', function(){
+        current_window = $(this).parent().parent();
+        if (current_window.length > 0)
+            current_window.scrollTop(current_window[0].scrollHeight);
+    });
 });
 
 function ping(){
@@ -170,7 +178,8 @@ function show_chat(){
 }
 
 function reload_rooms(){
-    ws.send('/rooms');
+    if (ws)
+        ws.send('/rooms');
 }
 
 function onmessage(event){
@@ -194,7 +203,15 @@ function onmessage(event){
             reload_rooms();
             return;
         }
-
+        if (data.server_event == 'screenshot_completed'){
+            $('img#'+data.id).attr('src', data.src).removeClass('loading');
+            reload_rooms();
+            return;
+        }
+        if (data.server_event == 'screenshot_error') {
+            $('img#'+data.id).remove();
+            scroll_current_window();
+        }
     }
 
     if ('status' in data) {
@@ -210,6 +227,18 @@ function onmessage(event){
         html = '<p class="message"><span class="username">' + data.username +
          '</span><span class="time">' + data.time.toTimeString().substring(0,8) +
          '</span><span class="text">' + data.text + '</span>';
+        if ('urls' in data) {
+            for (i = 0; i < data.urls.length; i++) {
+                url = data.urls[i];
+                if (url.ready) {
+                    html = html + '<img id="'+url.id+'" src="' + url.src + '">';
+                }else{
+                    html = html + '<img class="loading" id="'+url.id+'" src="/static/images/loading.gif">';
+                }
+            }
+            setTimeout(scroll_current_window, 500);
+        }
+        html = html + '</p>';
         current_window = $('.messages.'+data.room);
         if (current_window.length > 0) {
             current_window.append(html);
@@ -229,7 +258,6 @@ function onmessage(event){
         if (!('is_history' in data) && !('self' in data))
             $('.room[data-room-code="' + data.room + '"]')
                 .effect("shake", {direction: "right", distance: 3}, 350);
-
     }
 }
 
@@ -344,8 +372,7 @@ function update_rooms_list(rooms){
 
 function signout(){
     if (ws) {
-        ws.onclose = function(){
-        };
+        ws.onclose = function(){};
         ws.close();
     }
     document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
@@ -372,4 +399,10 @@ function show_error(text){
     console.log(text);
     $('#status_line').html('<div class="error">' + text + '</div>').fadeIn();
     setTimeout(close_status_line, 5000);
+}
+
+function scroll_current_window(){
+    win = $('.messages:not(.invisible)');
+    if (win.length > 0)
+        win.scrollTop(win[0].scrollHeight);
 }
