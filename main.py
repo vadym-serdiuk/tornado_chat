@@ -5,6 +5,7 @@ from operator import itemgetter
 import os
 import uuid
 from bson.objectid import ObjectId
+from tornado.escape import xhtml_escape
 from tornado_consumer import TornadoConsumer
 from pymongo import MongoClient
 import hashlib
@@ -408,6 +409,7 @@ class WebSocketHandler(websocket.WebSocketHandler):
         message['time'] = calendar.timegm(datetime.datetime.utcnow().utctimetuple())
         room = message.get('room')
         text = message['text']
+        message['text'] = xhtml_escape(text)
 
         if room:
 
