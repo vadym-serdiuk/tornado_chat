@@ -1,4 +1,5 @@
 import sys
+import threading
 
 __author__ = 'vserdyuk'
 
@@ -84,10 +85,9 @@ def start_screenshots_creating(urls):
 
         data = json.loads(response.read().decode())
         id_webshot = data['id']
-        publish_start_checking(id_webshot, id_url)
+        threading.Timer(5, publish_start_checking, (id_webshot, id_url)).start()
 
 def check_screnshots(id_webshot, id_url):
-    time.sleep(5)
     params = {'id': id_webshot,
               'key': '1jXFaPpYikX9jQjfeSlHZvFuThR'}
 
@@ -96,11 +96,12 @@ def check_screnshots(id_webshot, id_url):
             'https://api.browshot.com/api/v1/screenshot/info?%s'
             % urlencode(params))
     except:
+        print sys.exc_info()
         return
 
     data = json.loads(f.read().decode())
     if data['status'] in('in_queue', 'in_process'):
-        publish_start_checking(id_webshot, id_url)
+        threading.Timer(5, publish_start_checking, (id_webshot, id_url)).start()
     elif data['status'] == 'finished':
 
         url = db.urls.find_one({'_id': ObjectId(id_url)})
