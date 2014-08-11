@@ -211,7 +211,13 @@ class SignupHandler(web.RequestHandler):
             data = {'status': 'error', 'message': 'password cannot be empty'}
             self.finish(json.dumps(data))
             return
-
+        if not re.match(r'[a-zA-Z\d\s]+', password):
+            data = {'status': 'error',
+                    'message': 'Password is wrong. '
+                               'It must be latinic literals or numbers '
+                               'or spaces'}
+            self.finish(json.dumps(data))
+            return
         if self.application.db.users.find_one({'username': username.lower()}):
             data = {'status': 'error',
                     'message': 'This username already is in use'}
@@ -238,6 +244,13 @@ class LoginHandler(web.RequestHandler):
             data = {"status": "error", "message": "username is empty"}
         elif not password:
             data = {"status": "error", "message": "password is empty"}
+        elif not re.match(r'[a-zA-Z\d\s]+', password):
+            data = {'status': 'error',
+                    'message': 'Password is wrong. '
+                               'It must be latinic literals or numbers '
+                               'or spaces'}
+            self.finish(json.dumps(data))
+            return
         elif self.application.authenticate(username, password):
             data = {"status": "success"}
             start_session(self, username)
