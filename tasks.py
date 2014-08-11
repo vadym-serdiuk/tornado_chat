@@ -1,3 +1,5 @@
+import sys
+
 __author__ = 'vserdyuk'
 
 import json
@@ -77,6 +79,7 @@ def start_screenshots_creating(urls):
                 'https://api.browshot.com/api/v1/screenshot/create?%s'
                 % urlencode(params))
         except:
+            print sys.exc_info()
             return
 
         data = json.loads(response.read().decode())
