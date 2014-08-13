@@ -294,7 +294,7 @@ function check_room_name(room){
 
 function connect_to_server(){
     url = location.hostname+(location.port ? ':'+location.port: '');
-    ws = new WebSocket('ws://' + url + '/chat');
+    ws = new WebSocket('wss://' + url + '/chat');
     ws.onclose = onclose;
     ws.onmessage = onmessage;
     ws.onopen = onopen;
